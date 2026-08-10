@@ -12,22 +12,10 @@ class RoundRobinKeyManager:
     def get_next_key(self):
         return next(self.key_cycle) if self.key_cycle else None
 
-TAVILY_KEYS = [
-    "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",
-    "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",
-    "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",
-    "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",
-    "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",
-    "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",
-    "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",
-    "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",
-    "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",
-    "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",
-    "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",
-    "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",
-    "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",
-    "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"
-]
+import os
+
+tavily_env_keys = os.environ.get("TAVILY_API_KEYS", "")
+TAVILY_KEYS = [k.strip() for k in tavily_env_keys.split(",") if k.strip()]
 tavily_key_manager = RoundRobinKeyManager(TAVILY_KEYS)
 
 def search_tavily(query: str) -> str:
