@@ -42,7 +42,7 @@ def call_crop_doctor(image, description: str, location: str, crop: str) -> dict:
         current_key = gemini_key_manager.get_next_key()
         genai.configure(api_key=current_key)
         
-        model = genai.GenerativeModel(model_name="gemma-2-27b-it")
+        model = genai.GenerativeModel(model_name="gemini-1.5-flash")
         
         system_instruction = f"""You are Kisan Mitra, an AI Crop Doctor. You diagnose plant diseases from images and descriptions.
 You MUST output your response in valid JSON format ONLY. Do not include markdown code blocks like ```json in the output, just the raw JSON object.
