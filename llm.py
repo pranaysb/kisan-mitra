@@ -7,7 +7,6 @@ from tools import get_weather, get_mandi_price, gemini_tools
 
 class RoundRobinKeyManager:
     def __init__(self, keys):
-        # Filter out any empty keys
         valid_keys = [k.strip() for k in keys if k.strip()]
         self.keys = valid_keys
         if self.keys:
@@ -20,7 +19,6 @@ class RoundRobinKeyManager:
             return next(self.key_cycle)
         return None
 
-# Initialize key managers with the provided keys
 GEMINI_KEYS = [
     "AIzaSyC2By-7sTY1gmj3W9HvO1wRJnRtnhDSKos",
     "AIzaSyDkm0cEo6G9rFg15bQRkBieFq1YEJMeAzM",
@@ -39,33 +37,18 @@ SARVAM_KEYS = [
 sarvam_key_manager = RoundRobinKeyManager(SARVAM_KEYS)
 
 def is_gemini_configured() -> bool:
-    """Checks if any API key is available."""
     return gemini_key_manager.get_next_key() is not None
 
 def call_crop_doctor(image, description: str, location: str, crop: str) -> dict:
-    """
-    Calls the Gemma 4 / Gemini model to analyze the crop.
-    
-    If the API key is not configured, it returns a mock response, but it still executes
-    the tools locally to demonstrate function calling working in the backend.
-    """
-    
-    # 1. Execute Function Calls
-    # Even in mock mode, we want to run the actual tools to show they work!
     weather_info = get_weather(location)
     mandi_info = get_mandi_price(crop, location)
     
-    # Context injected into the prompt based on tool execution
     context = f"Weather Context: {weather_info}\nMandi Context: {mandi_info}"
 
     if is_gemini_configured():
-        # REAL GEMINI IMPLEMENTATION
-        # Get the next key in the round-robin cycle
         current_key = gemini_key_manager.get_next_key()
         genai.configure(api_key=current_key)
-        print(f"Using Gemini API Key: {current_key[:10]}...")
         
-        # Using Gemma 2 as requested for the hackathon
         model = genai.GenerativeModel(model_name="gemma-2-27b-it")
         
         system_instruction = f"""You are Kisan Mitra, an AI Crop Doctor. You diagnose plant diseases from images and descriptions.
@@ -82,7 +65,6 @@ JSON Schema:
   "urgency": "Why this matters now, tied to weather/prices (Hindi)"
 }}
 """
-        
         prompt = [system_instruction]
         if image:
             prompt.append(image)
@@ -91,7 +73,6 @@ JSON Schema:
             
         try:
             response = model.generate_content(prompt)
-            # Clean up the response if it includes markdown formatting
             text = response.text
             if text.startswith("```json"):
                 text = text[7:]
@@ -100,13 +81,9 @@ JSON Schema:
             return json.loads(text.strip())
         except Exception as e:
             print(f"Live API failed, falling back to mock. Error: {e}")
-            # If the live API fails (e.g., invalid key), fall back to mock silently
             pass
             
-    # MOCK IMPLEMENTATION (Fallback or if no keys)
-    # We simulate what the LLM would output based on the prompt + tool context.
-    time.sleep(2) # Simulate network delay
-    
+    time.sleep(2)
     return {
         "disease": "गेहूं का रतुआ (Wheat Leaf Rust)",
         "confidence": "High (92%)",
@@ -116,7 +93,6 @@ JSON Schema:
     }
 
 def transcribe_audio(audio_bytes, file_name="audio.wav"):
-    """Uses Sarvam STT to transcribe audio to text."""
     api_key = sarvam_key_manager.get_next_key()
     if not api_key:
         return "Voice input is not configured."
@@ -137,7 +113,6 @@ def transcribe_audio(audio_bytes, file_name="audio.wav"):
         return f"[Audio transcription failed: {e}]"
 
 def text_to_speech(text: str):
-    """Uses Sarvam TTS to generate Hindi audio from text."""
     api_key = sarvam_key_manager.get_next_key()
     if not api_key:
         return None
@@ -171,13 +146,9 @@ def text_to_speech(text: str):
         return None
 
 def call_yojana_radar(state: str, crop: str, land_size: str, description: str) -> dict:
-    """
-    Calls the Gemma 4 / Gemini model to recommend agricultural schemes (Yojanas).
-    """
     if is_gemini_configured():
         current_key = gemini_key_manager.get_next_key()
         genai.configure(api_key=current_key)
-        print(f"Using Gemini API Key for Yojana: {current_key[:10]}...")
         
         model = genai.GenerativeModel(model_name="gemma-2-27b-it")
         
@@ -198,7 +169,6 @@ JSON Schema:
 }
 Recommend 2 to 3 highly relevant schemes. Ensure the schemes are applicable in the given state.
 """
-        
         prompt = [system_instruction]
         farmer_details = f"State: {state}\nCrop: {crop}\nLand Size: {land_size}"
         if description:
@@ -217,7 +187,6 @@ Recommend 2 to 3 highly relevant schemes. Ensure the schemes are applicable in t
             print(f"Live API failed for Yojana, falling back to mock. Error: {e}")
             pass
             
-    # MOCK IMPLEMENTATION
     time.sleep(1.5)
     return {
         "schemes": [
@@ -234,4 +203,103 @@ Recommend 2 to 3 highly relevant schemes. Ensure the schemes are applicable in t
                 "how_to_apply": "अपने बैंक, सीएससी (CSC) या पीएमएफबीवाई पोर्टल के माध्यम से फसल की बुवाई से पहले आवेदन करें।"
             }
         ]
+    }
+
+def call_mandi_agent(state: str, district: str, crop: str, description: str) -> dict:
+    if is_gemini_configured():
+        current_key = gemini_key_manager.get_next_key()
+        genai.configure(api_key=current_key)
+        
+        model = genai.GenerativeModel(model_name="gemma-2-27b-it")
+        
+        system_instruction = """You are Kisan Mitra, an AI Agricultural Market Analyst.
+You simulate realistic APMC Mandi prices for a specific crop in a given Indian state and district.
+You MUST output your response in valid JSON format ONLY. Do not include markdown code blocks like ```json in the output, just the raw JSON object.
+
+JSON Schema:
+{
+  "mandi_name": "Name of the local Mandi/Market (Hindi/English)",
+  "date": "Today's simulated date",
+  "min_price": "Simulated minimum price in ₹/Quintal",
+  "max_price": "Simulated maximum price in ₹/Quintal",
+  "modal_price": "Simulated modal/average price in ₹/Quintal",
+  "trend": "Up/Down/Stable (Hindi)",
+  "advisory": "Market advice on whether to sell now or hold (Hindi)"
+}
+Ensure the prices are realistic for the given crop (e.g. Wheat is around 2200-2500, Tomato varies wildly).
+"""
+        prompt = [system_instruction]
+        details = f"State: {state}\nDistrict: {district}\nCrop: {crop}"
+        if description:
+            details += f"\nVoice Notes: {description}"
+        prompt.append(details)
+            
+        try:
+            response = model.generate_content(prompt)
+            text = response.text
+            if text.startswith("```json"):
+                text = text[7:]
+            if text.endswith("```"):
+                text = text[:-3]
+            return json.loads(text.strip())
+        except Exception as e:
+            print(f"Live API failed for Mandi, falling back to mock. Error: {e}")
+            pass
+            
+    time.sleep(1.5)
+    return {
+        "mandi_name": f"{district} कृषि उपज मंडी (APMC)",
+        "date": "आज का भाव",
+        "min_price": "2,150",
+        "max_price": "2,400",
+        "modal_price": "2,275",
+        "trend": "स्थिर (Stable)",
+        "advisory": "कीमतें स्थिर हैं। यदि आपको तुरंत नकदी की आवश्यकता नहीं है, तो आप 1-2 सप्ताह तक प्रतीक्षा कर सकते हैं।"
+    }
+
+def call_weather_agent(state: str, district: str, crop: str, description: str) -> dict:
+    if is_gemini_configured():
+        current_key = gemini_key_manager.get_next_key()
+        genai.configure(api_key=current_key)
+        
+        model = genai.GenerativeModel(model_name="gemma-2-27b-it")
+        
+        system_instruction = """You are Kisan Mitra, an AI Agrometeorological Expert.
+You simulate realistic weather conditions and provide crop-specific farming advisories based on the simulated weather.
+You MUST output your response in valid JSON format ONLY. Do not include markdown code blocks like ```json in the output, just the raw JSON object.
+
+JSON Schema:
+{
+  "forecast": "Brief 3-day weather forecast (Hindi)",
+  "temperature": "e.g., 28°C - 34°C",
+  "rain_probability": "e.g., High (80%)",
+  "crop_advisory": "Specific advice for the requested crop based on this weather (e.g., delay irrigation, spray pesticide) (Hindi)",
+  "alert_level": "Normal/Warning/Alert"
+}
+"""
+        prompt = [system_instruction]
+        details = f"State: {state}\nDistrict: {district}\nCrop: {crop}"
+        if description:
+            details += f"\nVoice Notes: {description}"
+        prompt.append(details)
+            
+        try:
+            response = model.generate_content(prompt)
+            text = response.text
+            if text.startswith("```json"):
+                text = text[7:]
+            if text.endswith("```"):
+                text = text[:-3]
+            return json.loads(text.strip())
+        except Exception as e:
+            print(f"Live API failed for Weather, falling back to mock. Error: {e}")
+            pass
+            
+    time.sleep(1.5)
+    return {
+        "forecast": "अगले 3 दिनों तक हल्की से मध्यम बारिश की संभावना है। आसमान में बादल छाए रहेंगे।",
+        "temperature": "26°C - 32°C",
+        "rain_probability": "High (75%)",
+        "crop_advisory": f"{crop} की फसल में सिंचाई रोक दें। बारिश के बाद फंगल इन्फेक्शन का खतरा बढ़ सकता है, इसलिए मौसम साफ होने पर फफूंदनाशक का छिड़काव करें।",
+        "alert_level": "Warning"
     }
