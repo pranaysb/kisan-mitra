@@ -19,21 +19,14 @@ class RoundRobinKeyManager:
             return next(self.key_cycle)
         return None
 
-GEMINI_KEYS = [
-    "AIzaSyC2By-7sTY1gmj3W9HvO1wRJnRtnhDSKos",
-    "AIzaSyDkm0cEo6G9rFg15bQRkBieFq1YEJMeAzM",
-    "AIzaSyA-Kyr-SQ5SX_NDSVNMCnUeilm2RJuwQ7I",
-    "AIzaSyCLmLqOK7DqGf9bcxqCJdX816U6lXm6kjw",
-    "AIzaSyDcJmUC99I5P3FMV0IOT328vTrIAWgovF0"
-]
+# Initialize key managers with keys from environment variables
+# Expecting comma-separated keys like: GEMINI_API_KEYS="key1,key2"
+gemini_env_keys = os.environ.get("GEMINI_API_KEYS", "")
+GEMINI_KEYS = [k.strip() for k in gemini_env_keys.split(",") if k.strip()]
 gemini_key_manager = RoundRobinKeyManager(GEMINI_KEYS)
 
-SARVAM_KEYS = [
-    "sk_6eud0o7a_lXDjB3Gov5uFNktBs2nxrpa8",
-    "sk_caqjpb20_QKn8LoQwi6HP2zEGVGiA2YVf",
-    "sk_zdbgtzrv_4DbyyXrNk1F3pOD7rSwQ5jmW",
-    "sk_ndgxi6ul_tDcJm4gImHJe7iiUf3je3iz3"
-]
+sarvam_env_keys = os.environ.get("SARVAM_API_KEYS", "")
+SARVAM_KEYS = [k.strip() for k in sarvam_env_keys.split(",") if k.strip()]
 sarvam_key_manager = RoundRobinKeyManager(SARVAM_KEYS)
 
 def is_gemini_configured() -> bool:
